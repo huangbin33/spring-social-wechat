@@ -30,7 +30,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 /**
  * Annotated mixin to add Jackson annotations to WechatProfile. 
- * @author Craig Walls
+ * @author John Cao
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 abstract class WechatProfileMixin extends WechatObjectMixin {

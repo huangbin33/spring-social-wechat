@@ -23,7 +23,7 @@ import org.springframework.social.wechat.api.Wechat;
 
 /**
  * Wechat ApiAdapter implementation.
- * @author Keith Donald
+ * @author John Cao
  */
 public class WechatAdapter implements ApiAdapter<Wechat> {
 

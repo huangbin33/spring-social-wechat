@@ -20,7 +20,7 @@ import java.util.List;
 
 /**
  * Model class containing a Wechat user's profile information.
- * @author Craig Walls
+ * @author John Cao
  */
 @SuppressWarnings("serial")
 public class WechatProfile extends WechatObject implements Serializable {

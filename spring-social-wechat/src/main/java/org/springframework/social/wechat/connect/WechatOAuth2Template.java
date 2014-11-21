@@ -25,7 +25,7 @@ import org.springframework.util.MultiValueMap;
  * Wechat-specific extension of OAuth2Template2 to use a RestTemplate that recognizes form-encoded responses as "text/plain".
  * Wechat token responses are form-encoded results with a content type of "text/plain", which prevents the FormHttpMessageConverter
  * registered by default from parsing the results.
- * @author Craig Walls
+ * @author John Cao
  */
 public class WechatOAuth2Template extends OAuth2Template2 {
 

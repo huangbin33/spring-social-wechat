@@ -19,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.Collections;
 import java.util.Map;
 
 import org.apache.commons.logging.Log;
@@ -47,23 +48,38 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Subclass of {@link DefaultResponseErrorHandler} that handles errors from Wechat's
  * Graph API, interpreting them into appropriate exceptions.
- * @author Craig Walls
+ * @author John Cao
  */
 class WechatErrorHandler extends DefaultResponseErrorHandler {
 
 	private final static Log logger = LogFactory.getLog(WechatErrorHandler.class);
 	private final static String WECHAT = "wechat";
+	private final static String ERROR_CODE = "errcode";
+	private final static String ERROR_MESSAGE = "errmsg";
 
+	/**
+	 * Delegates to {@link #hasError(HttpStatus)} with the response status code.
+	 */
+	@Override
+	public boolean hasError(ClientHttpResponse response) throws IOException {
+		String json = readFully(response.getBody());
+		if(json.contains(ERROR_CODE) && json.contains(ERROR_MESSAGE)){
+			if(json.substring(json.indexOf(ERROR_MESSAGE)).contains("ok")){
+				return false;
+			}
+			return true;
+		}
+		return false;
+	}
+	
 	@Override
 	public void handleError(ClientHttpResponse response) throws IOException {
 		Map<String, String> errorDetails = extractErrorDetailsFromResponse(response);
+		handleWechatError(response.getStatusCode(), errorDetails);
 		if (errorDetails == null) {
 			handleUncategorizedError(response, errorDetails);
 		}
-		handleWechatError(response.getStatusCode(), errorDetails);
-		
-		// if not otherwise handled, do default handling and wrap with UncategorizedApiException
-		handleUncategorizedError(response, errorDetails);			
+					
 	}
 
 	/**
@@ -73,74 +89,20 @@ class WechatErrorHandler extends DefaultResponseErrorHandler {
 	void handleWechatError(HttpStatus statusCode, Map<String, String> errorDetails) {
 		// Can't trust the type to be useful. It's often OAuthException, even for things not OAuth-related. 
 		// Can rely only on the message (which itself isn't very consistent).
-		String message = errorDetails.get("message");
-		if (statusCode == HttpStatus.NOT_FOUND) {
-			if (message.contains("Some of the aliases you requested do not exist")) {
-				throw new ResourceNotFoundException(WECHAT, message);
-			}
-		} else if (statusCode == HttpStatus.BAD_REQUEST) {
-			if (message.contains("Unknown path components")) {
-				throw new ResourceNotFoundException(WECHAT, message);
-			} else if (message.equals("An access token is required to request this resource.")) {
-				throw new MissingAuthorizationException(WECHAT);
-			} else if (message.equals("An active access token must be used to query information about the current user.")) {
-				throw new MissingAuthorizationException(WECHAT);
-			} else if (message.startsWith("Error validating access token")) {
-				handleInvalidAccessToken(message);
-			} else if (message.equals("Invalid access token signature.")) { // Access token that fails signature validation
-				throw new InvalidAuthorizationException(WECHAT, message);
-			} else if (message.contains("Application does not have the capability to make this API call.") || message.contains("App must be on whitelist")) {
-				throw new OperationNotPermittedException(WECHAT, message);
-			} else if (message.contains("Invalid fbid") || message.contains("The parameter url is required")) { 
-				throw new OperationNotPermittedException(WECHAT, "Invalid object for this operation");
-			} else if (message.contains("Duplicate status message") ) {
-				throw new DuplicateStatusException(WECHAT, message);
-			} else if (message.contains("Feed action request limit reached")) {
-				throw new RateLimitExceededException(WECHAT);
-			} else if (message.contains("The status you are trying to publish is a duplicate of, or too similar to, one that we recently posted to Twitter")) {
-				throw new DuplicateStatusException(WECHAT, message);
-			}
-		} else if (statusCode == HttpStatus.UNAUTHORIZED) {
-			if (message.startsWith("Error validating access token")) {
-				handleInvalidAccessToken(message);
-			} else if (message.equals("Invalid OAuth access token.")) {  // Bogus access token
-				throw new InvalidAuthorizationException(WECHAT, message);
-			} else if (message.startsWith("Error validating application.")) { // Access token with incorrect app ID
-				throw new InvalidAuthorizationException(WECHAT, message);
-			}
-			throw new NotAuthorizedException(WECHAT, message);
-		} else if (statusCode == HttpStatus.FORBIDDEN) {
-			if (message.contains("Requires extended permission")) {
-				throw new InsufficientPermissionException(WECHAT, message.split(": ")[1]);
-			} else if (message.contains("Permissions error")) {
-				throw new InsufficientPermissionException(WECHAT);
-			} else if (message.contains("The user hasn't authorized the application to perform this action")) {
-				throw new InsufficientPermissionException(WECHAT);
-			} else {
-				throw new OperationNotPermittedException(WECHAT, message);
-			}
-		} else if (statusCode == HttpStatus.NOT_FOUND) {
-			throw new ResourceNotFoundException(WECHAT, message);
-		} else if (statusCode == HttpStatus.INTERNAL_SERVER_ERROR) {
-			//TODO: CASE ANALYSIS...
-			throw new InternalServerErrorException(WECHAT, message);
-			
-		}
-	}
-
-	private void handleInvalidAccessToken(String message) {
-		if (message.contains("Session has expired at unix time")) {
-			throw new ExpiredAuthorizationException("wechat");
-		} else if (message.contains("The session has been invalidated because the user has changed the password.")) {
-			throw new RevokedAuthorizationException("wechat", message);
-		} else if (message.contains("The session is invalid because the user logged out.")) {
-			throw new RevokedAuthorizationException("wechat", message);
-		} else if (message.contains("The session was invalidated explicitly using an API call.")) {
-			throw new RevokedAuthorizationException("wechat", message);
-		} else if (message.contains("Session does not match current stored session.")) {
-			throw new RevokedAuthorizationException("wechat", message);
+		String code = errorDetails.get(ERROR_CODE);
+		String message = printErrorMapDetails(errorDetails);
+		if (statusCode != HttpStatus.OK) {
+			throw new ResourceNotFoundException(WECHAT, message);			
 		} else {
-			throw new InvalidAuthorizationException("wechat", message);
+			if(code.equals("40029")){
+				throw new NotAuthorizedException(WECHAT, message);
+			}else if(code.equals("40030")){
+				throw new InvalidAuthorizationException(WECHAT, message);
+			}else if(code.equals("40003")){
+				throw new OperationNotPermittedException(WECHAT, message);
+			}else{
+				throw new ResourceNotFoundException(WECHAT, message);
+			}
 		}
 	}
 
@@ -149,41 +111,38 @@ class WechatErrorHandler extends DefaultResponseErrorHandler {
 			super.handleError(response);
 		} catch (Exception e) {
 			if (errorDetails != null) {
-				throw new UncategorizedApiException("wechat", errorDetails.get("message"), e);
+				throw new UncategorizedApiException(WECHAT, printErrorMapDetails(errorDetails), e);
 			} else {
-				throw new UncategorizedApiException("wechat", "No error details from Wechat", e);
+				throw new UncategorizedApiException(WECHAT, "No error details from Wechat", e);
 			}
 		}
+	}
+	
+	private String printErrorMapDetails(Map<String, String> errorDetails){
+		return ERROR_CODE+"="+errorDetails.get(ERROR_CODE)+","+ERROR_MESSAGE+"="+errorDetails.get(ERROR_MESSAGE);
 	}
 
 	/*
 	 * Attempts to extract Wechat error details from the response.
 	 * Returns null if the response doesn't match the expected JSON error response.
+	 * Expected to return a Map<String, String> of keys 'errcode' & 'errmsg'.
 	 */
-	@SuppressWarnings("unchecked")
 	private Map<String, String> extractErrorDetailsFromResponse(ClientHttpResponse response) throws IOException {
 		ObjectMapper mapper = new ObjectMapper(new JsonFactory());
 		String json = readFully(response.getBody());
 		
-		System.out.println(json);
-		
-		if (logger.isDebugEnabled()) {
-			logger.debug("Error from Wechat: " + json);
-		}
-		if (json.equals("false")) {
-			// Sometimes FB returns "false" when requesting an object that the access token doesn't have permission for.
-			throw new InsufficientPermissionException("wechat");
-		}
+		logger.debug("Error from Wechat: " + json);
 				
 		try {
-		    Map<String, Object> responseMap = mapper.<Map<String, Object>>readValue(json, new TypeReference<Map<String, Object>>() {});
-		    if (responseMap.containsKey("error")) {
-		    	return (Map<String, String>) responseMap.get("error");
-		    }
+		    Map<String, String> responseMap = mapper.<Map<String, String>>readValue(json, new TypeReference<Map<String, String>>() {});
+		    Map<String, String> errorMap = Collections.<String,String>emptyMap();
+		    errorMap.put(ERROR_CODE, responseMap.get(ERROR_CODE));
+		    errorMap.put(ERROR_MESSAGE, responseMap.get(ERROR_MESSAGE));
+		    return errorMap;
+		    
 		} catch (JsonParseException e) {
 			return null;
 		}
-	    return null;
 	}
 	
 	private String readFully(InputStream in) throws IOException {

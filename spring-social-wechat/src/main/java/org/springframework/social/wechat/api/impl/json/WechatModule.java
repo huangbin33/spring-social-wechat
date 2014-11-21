@@ -17,11 +17,14 @@ package org.springframework.social.wechat.api.impl.json;
 
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
+import org.springframework.social.wechat.api.WechatOkMessage;
 import org.springframework.social.wechat.api.WechatProfile;
 
 /**
- * Jackson module for setting up mixin annotations on Wechat model types. This enables the use of Jackson annotations without
+ * Jackson module for setting up mixin annotations on Wechat model types. 
+ * This enables the use of Jackson annotations without
  * directly annotating the model classes themselves.
+ * 
  * @author John Cao
  */
 @SuppressWarnings("serial")
@@ -33,6 +36,7 @@ public class WechatModule extends SimpleModule {
 	
 	@Override
 	public void setupModule(SetupContext context) {		
-		context.setMixInAnnotations(WechatProfile.class, WechatProfileMixin.class);		
+		context.setMixInAnnotations(WechatProfile.class, WechatProfileMixin.class);	
+		context.setMixInAnnotations(WechatOkMessage.class, WechatOkMessageMixin.class);	
 	}
 }

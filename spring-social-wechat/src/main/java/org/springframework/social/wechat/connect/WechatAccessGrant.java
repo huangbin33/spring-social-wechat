@@ -6,7 +6,7 @@ package org.springframework.social.wechat.connect;
 import org.springframework.social.oauth2.AccessGrant;
 
 /**
- * @author jhcao
+ * @author John Cao
  *
  */
 @SuppressWarnings("serial")

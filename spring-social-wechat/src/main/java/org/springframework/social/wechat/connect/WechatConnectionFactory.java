@@ -20,8 +20,7 @@ import org.springframework.social.wechat.api.Wechat;
 
 /**
  * Wechat ConnectionFactory implementation.
- * @author Keith Donald
- * @author Craig Walls
+ * @author John Cao
  */
 public class WechatConnectionFactory extends OAuth2ConnectionFactory<Wechat> {
 
