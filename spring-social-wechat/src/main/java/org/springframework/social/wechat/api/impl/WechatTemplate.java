@@ -71,6 +71,10 @@ public class WechatTemplate extends AbstractOAuth2ApiBinding implements Wechat {
 		return userOperations;
 	}
 	
+	public ValidationOperations validationOperations() {
+		return validationOperations;
+	}
+	
 	public RestOperations restOperations() {
 		return getRestTemplate();
 	}
