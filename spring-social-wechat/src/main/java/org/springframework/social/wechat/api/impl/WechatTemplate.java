@@ -23,6 +23,7 @@ import org.springframework.social.oauth2.AbstractOAuth2ApiBinding;
 import org.springframework.social.oauth2.TokenStrategy;
 import org.springframework.social.support.ClientHttpRequestFactorySelector;
 import org.springframework.social.wechat.api.UserOperations;
+import org.springframework.social.wechat.api.ValidationOperations;
 import org.springframework.social.wechat.api.Wechat;
 import org.springframework.social.wechat.api.impl.json.WechatModule;
 import org.springframework.web.client.RestOperations;
@@ -44,6 +45,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class WechatTemplate extends AbstractOAuth2ApiBinding implements Wechat {
 	
 	private UserOperations userOperations;
+	
+	private ValidationOperations validationOperations;
 
 	private ObjectMapper objectMapper;
 
@@ -94,7 +97,8 @@ public class WechatTemplate extends AbstractOAuth2ApiBinding implements Wechat {
 	}
 		
 	private void initSubApis() {
-		userOperations = new UserTemplate(restOperations(), isAuthorized());		
+		userOperations = new UserTemplate(restOperations(), isAuthorized());
+		validationOperations = new ValidationTemplate(restOperations(), isAuthorized());
 	}
 	
 }
